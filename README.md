@@ -8,6 +8,12 @@ DirBrowser is a single PHP file with no installation process, no database, and n
 
 Simply place `index.php` in a folder and open it through your browser.
 
+> [!WARNING]
+> **DirBrowser is designed for local development environments only.**
+>
+> This tool is intended for use on local development servers such as **Laragon**, where you need a convenient way to browse project folders during development.
+>
+> **Do not install DirBrowser on a live production server.**
 ---
 
 ## Features
