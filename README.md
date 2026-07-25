@@ -1,12 +1,12 @@
 # DirBrowser
 
-A modern, developer-friendly replacement for Apache directory listings.
+A modern, lightweight replacement for Apache directory listings.
 
-DirBrowser is a lightweight PHP-based directory browser designed for local development environments, especially [Laragon](https://laragon.org/). It provides a clean, modern interface for browsing folders that do not contain an `index.php`, `index.html`, or other index file.
+DirBrowser provides a clean, GitHub-inspired file browser for folders that do not contain an `index.*` file. It is designed primarily for local development environments such as **Laragon**, where browsing project folders is often more useful than seeing Apache's default directory listing.
 
-Instead of seeing Apache's plain directory listing, DirBrowser gives you a GitHub-inspired browsing experience with file icons, metadata, search, sorting, README rendering, and a developer-friendly interface.
+DirBrowser is a single PHP file with no installation process, no database, and no external dependencies.
 
-DirBrowser requires no database, no framework, and no build process. Installation is simply copying one folder and adding a small Apache configuration change.
+Simply place `index.php` in a folder and open it through your browser.
 
 ---
 
@@ -14,276 +14,275 @@ DirBrowser requires no database, no framework, and no build process. Installatio
 
 ### Modern directory browsing
 
-* Clean Bootstrap 5 interface
-* Folder-first display
-* File type icons
-* File sizes
-* Last modified dates
-* Breadcrumb navigation
+- Clean, responsive interface
+- Folder and file listing
+- Folders displayed before files
+- File metadata:
+  - size
+  - modified date
+- Breadcrumb navigation
+- Parent directory navigation
 
-### Developer-friendly tools
+---
 
-* Instant file search
-* Click column headers to sort
-* `Ctrl + /` keyboard shortcut to focus search
-* Dark mode toggle
-* Responsive layout
+### GitHub-inspired design
 
-### README support
+The interface is inspired by modern code hosting platforms:
 
-If a folder contains a:
+- clean typography
+- inline SVG icons
+- familiar folder and file presentation
+- readable paths
+- responsive layout
+
+---
+
+### Sorting
+
+Columns can be sorted by clicking the heading:
+
+- Name
+- Size
+- Modified date
+
+The active sort column displays an arrow showing:
+
+- ascending order
+- descending order
+
+When sorting by name:
+
+- folders remain grouped together
+- files remain grouped together
+- alphabetical sorting happens within each group
+
+---
+
+### Search
+
+Instant client-side searching.
+
+Press:
+
+```
+Ctrl + /
+```
+
+to focus the search box.
+
+Press:
+
+```
+Escape
+```
+
+to clear the search.
+
+---
+
+### Dark mode
+
+Includes a built-in dark mode toggle.
+
+The selected theme is remembered using browser local storage, so your preference remains after refreshing the page.
+
+---
+
+### README.md support
+
+If a folder contains:
 
 ```
 README.md
 ```
 
-file, DirBrowser automatically displays it underneath the directory listing.
+DirBrowser automatically displays it underneath the directory listing.
 
-Supported Markdown features include:
+This is useful for:
 
-* Headings
-* Bold text
-* Inline code
-* Code blocks
-* Lists
-* Links
-
-README content is safely escaped before rendering.
-
-### Laragon integration
-
-Designed specifically for Laragon workflows:
-
-* Works with `.test` virtual hosts
-* Works with multiple local projects
-* Appears only when no index file exists
-* Does not interfere with normal websites
-* Requires only a single PHP file
+- project documentation
+- installation notes
+- development information
+- repository descriptions
 
 ---
 
-# Requirements
+### File icons
 
-* PHP 8.1 or newer
-* Apache
-* Laragon (recommended)
+DirBrowser includes inline SVG icons for common file types:
+
+- PHP
+- HTML
+- CSS
+- JavaScript
+- JSON
+- XML
+- Markdown
+- Images
+- Archives
+- PDF files
+
+---
+
+### Security features
+
+DirBrowser includes basic protections:
+
+- prevents directory traversal
+- hides hidden files by default
+- blocks access outside the document root
+- escapes displayed filenames and paths
+
+---
+
+## Requirements
+
+- PHP 8.1 or newer
+- Apache (recommended)
+- Laragon (recommended for local development)
 
 ---
 
 # Installation with Laragon
 
-## 1. Copy DirBrowser
+## Option 1 — Single project installation
 
-Create the following folder:
+Copy `index.php` into any project folder.
+
+Example:
 
 ```
-C:\laragon\usr\dirbrowser
+C:\laragon\www\my-project\
+│
+└── index.php
 ```
 
-Copy:
+Start Laragon and open:
+
+```
+http://my-project.test/
+```
+
+If the folder does not contain:
 
 ```
 index.php
+index.html
+index.htm
 ```
 
-into that folder:
-
-```
-C:\laragon\usr\dirbrowser\index.php
-```
-
-Your structure should look like:
-
-```
-C:\laragon
-│
-├── usr
-│   └── dirbrowser
-│       └── index.php
-│
-└── www
-    ├── project1
-    ├── project2
-    └── downloads
-```
+DirBrowser will display the directory contents.
 
 ---
 
-## 2. Create the Apache configuration
+## Option 2 — Global directory browser
 
-Create:
+If you want DirBrowser available for multiple projects, create:
 
 ```
-C:\laragon\etc\apache2\extra\httpd-dirbrowser.conf
+C:\laragon\usr\dirbrowser\
+│
+└── index.php
 ```
+
+Then configure Apache to use it as the directory listing handler.
 
 Add:
 
 ```apache
-#
-# DirBrowser
-#
-
-Alias /__dirbrowser "C:/laragon/usr/dirbrowser"
-
-
-<Directory "C:/laragon/usr/dirbrowser">
-
-    AllowOverride None
-    Require all granted
-
-</Directory>
-
-
-#
-# Show DirBrowser instead of Apache directory listing
-#
-
-<Directory "C:/laragon/www">
-
-    Options -Indexes
-
-    ErrorDocument 403 /__dirbrowser/index.php
-
-</Directory>
+ErrorDocument 403 /__dirbrowser/index.php
 ```
 
----
+Restart Apache.
 
-## 3. Enable the configuration
-
-Open your Apache configuration:
-
-```
-C:\laragon\bin\apache\httpd-*\conf\httpd.conf
-```
-
-Find the other `Include` statements and add:
-
-```apache
-Include conf/extra/httpd-dirbrowser.conf
-```
-
-Save the file.
-
----
-
-## 4. Restart Apache
-
-In Laragon:
-
-```
-Menu
- → Apache
- → Restart
-```
+Now folders without an index file can automatically display DirBrowser.
 
 ---
 
 # Testing
 
-Create a folder without an index file:
+You can test DirBrowser without any Apache configuration.
+
+Create:
 
 ```
-C:\laragon\www\testbrowser
-```
-
-Add some files:
-
-```
-testbrowser
+C:\laragon\www\test-folder\
 │
-├── example.txt
-├── image.png
-└── archive.zip
-```
-
-Visit:
-
-```
-http://testbrowser.test/
-```
-
-Instead of Apache's directory listing, DirBrowser will appear.
-
----
-
-Now add:
-
-```
-index.php
-```
-
-to the folder:
-
-```php
-<?php
-
-echo "Hello Laragon";
-```
-
-Refresh the browser.
-
-Your PHP file will load normally and DirBrowser will no longer appear.
-
----
-
-# Adding README files
-
-To display documentation for a folder, simply add:
-
-```
-README.md
-```
-
-Example:
-
-```
-my-project
-│
-├── README.md
 ├── index.php
-└── assets
+├── README.md
+├── example.txt
+└── images\
 ```
 
-The README will automatically appear below the directory listing.
+Open:
+
+```
+http://test-folder.test/
+```
+
+The directory contents will be displayed.
 
 ---
 
 # Configuration
 
-Basic settings are available at the top of `index.php`:
+Configuration is located near the top of `index.php`.
+
+Example:
 
 ```php
 $config = [
     'showHiddenFiles' => false,
     'showFileSizes'   => true,
-    'showModified'    => true,
-    'showReadme'      => true,
-    'darkMode'        => false,
 ];
 ```
 
 Options:
 
-| Option            | Description                   |
-| ----------------- | ----------------------------- |
-| `showHiddenFiles` | Show files beginning with `.` |
-| `showFileSizes`   | Display file sizes            |
-| `showModified`    | Display modified dates        |
-| `showReadme`      | Render README.md files        |
-| `darkMode`        | Start in dark mode            |
+| Option | Description |
+|---|---|
+| `showHiddenFiles` | Display hidden files such as `.git` files |
+| `showFileSizes` | Display file sizes |
 
 ---
 
-# License
+# Why DirBrowser?
 
-DirBrowser is released under the MIT License.
+Apache's default directory listing is functional but limited.
+
+DirBrowser provides:
+
+- a more pleasant browsing experience
+- useful project documentation
+- better visibility of development files
+- a modern interface for local development
+
+It is especially useful when working with:
+
+- Laravel projects
+- Joomla extensions
+- WordPress plugins
+- static websites
+- JavaScript projects
+- documentation folders
+- build output directories
 
 ---
 
 # Credits
 
-Built for developers who want a better directory browsing experience during local development.
+Inspired by:
 
-Inspired by modern directory indexers and GitHub-style project browsing.
+- Apache Fancy Indexing projects
+- GitHub repository browsing
+- modern developer tools
+
+Built as a lightweight alternative for local development environments.
+
+---
+
+# License
+
+MIT License
+
+Copyright © @brianteeman
