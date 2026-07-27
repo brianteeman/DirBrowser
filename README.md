@@ -151,58 +151,6 @@ DirBrowser includes basic protections:
 
 # Installation with Laragon
 
-## Option 1 — Single project installation
-
-Copy `index.php` into any project folder.
-
-Example:
-
-```
-C:\laragon\www\my-project\
-│
-└── index.php
-```
-
-Start Laragon and open:
-
-```
-http://my-project.test/
-```
-
-If the folder does not contain:
-
-```
-index.php
-index.html
-index.htm
-```
-
-DirBrowser will display the directory contents.
-
----
-
-## Option 2 — Global directory browser
-
-If you want DirBrowser available for multiple projects, create:
-
-```
-C:\laragon\usr\dirbrowser\
-│
-└── index.php
-```
-
-Then configure Apache to use it as the directory listing handler.
-
-Add:
-
-```apache
-ErrorDocument 403 /__dirbrowser/index.php
-```
-
-Restart Apache.
-
-Now folders without an index file can automatically display DirBrowser.
-
 ---
 
 # Testing
