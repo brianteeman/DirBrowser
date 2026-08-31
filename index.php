@@ -1,6 +1,6 @@
 <?php
 /**
- * DirBrowser v1.0
+ * DirBrowser v1.1
  *
  * A modern replacement for Apache directory listings.
  *
@@ -27,20 +27,140 @@ declare(strict_types=1);
 $config = [
     'showHiddenFiles' => false,
     'showReadme'      => true,
+    'globalEndpoint'  => '/__dirbrowser__',
 ];
 /*
 |--------------------------------------------------------------------------
 | Directory handling
 |--------------------------------------------------------------------------
+| DirBrowser normally browses the directory where this file is installed.
+| When Apache DirectoryIndex internally invokes the configured global endpoint,
+| it browses the originally requested URL path under the current vhost's
+| DOCUMENT_ROOT instead.
 */
-$documentRoot = realpath(
-    $_SERVER['DOCUMENT_ROOT'] ?? ''
-);
-if (!$documentRoot || !is_dir($documentRoot)) {
-    http_response_code(500);
-    exit('Unable to determine directory');
+function normalisePathSeparators(string $path): string
+{
+    return rtrim(str_replace('\\', '/', $path), '/');
 }
-$directory = $documentRoot;
+function isInsideDocumentRoot(string $path, string $documentRoot): bool
+{
+    $path = normalisePathSeparators($path);
+    $documentRoot = normalisePathSeparators($documentRoot);
+
+    return $path === $documentRoot || str_starts_with($path, $documentRoot . '/');
+}
+function decodeUrlPath(string $path): ?string
+{
+    for ($i = 0; $i < 5; $i++) {
+        $decoded = rawurldecode($path);
+        if ($decoded === $path) {
+            return $decoded;
+        }
+        $path = $decoded;
+    }
+
+    return null;
+}
+function resolveRequestedDirectory(string $documentRoot, string $requestUri, string $endpoint): ?string
+{
+    $urlPath = parse_url($requestUri, PHP_URL_PATH);
+    if (!is_string($urlPath) || $urlPath === '') {
+        return null;
+    }
+
+    $decodedPath = decodeUrlPath($urlPath);
+    if ($decodedPath === null) {
+        return null;
+    }
+
+    if ($decodedPath === $endpoint || str_starts_with($decodedPath, $endpoint . '/')) {
+        return null;
+    }
+
+    if (str_contains($decodedPath, "\0") || str_contains($decodedPath, '\\')) {
+        return null;
+    }
+
+    $segments = explode('/', ltrim($decodedPath, '/'));
+    foreach ($segments as $segment) {
+        if ($segment === '..') {
+            return null;
+        }
+    }
+
+    $relativePath = implode(
+        DIRECTORY_SEPARATOR,
+        array_filter($segments, static fn ($segment) => $segment !== '' && $segment !== '.')
+    );
+    $candidate = $documentRoot . ($relativePath === '' ? '' : DIRECTORY_SEPARATOR . $relativePath);
+    $directory = realpath($candidate);
+
+    if (!$directory || !is_dir($directory)) {
+        return null;
+    }
+
+    return isInsideDocumentRoot($directory, $documentRoot) ? $directory : null;
+}
+function isGlobalDirBrowserRequest(array $server, string $endpoint): bool
+{
+    foreach (['SCRIPT_NAME', 'PHP_SELF'] as $key) {
+        if (($server[$key] ?? '') === $endpoint) {
+            return true;
+        }
+    }
+
+    return ($server['DIRBROWSER_GLOBAL'] ?? '') === '1';
+}
+function determineBrowseDirectory(array $server, string $endpoint): ?string
+{
+    if (!isGlobalDirBrowserRequest($server, $endpoint)) {
+        $directory = realpath(__DIR__);
+
+        return $directory && is_dir($directory) ? $directory : null;
+    }
+
+    $documentRoot = realpath($server['DOCUMENT_ROOT'] ?? '');
+    if (!$documentRoot || !is_dir($documentRoot)) {
+        return null;
+    }
+
+    return resolveRequestedDirectory($documentRoot, $server['REQUEST_URI'] ?? '', $endpoint);
+}
+if (PHP_SAPI === 'cli' && ($argv[1] ?? '') === '--self-test') {
+    $root = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'dirbrowser-test-' . bin2hex(random_bytes(4));
+    mkdir($root . DIRECTORY_SEPARATOR . 'foo' . DIRECTORY_SEPARATOR . 'nested', 0777, true);
+    mkdir($root . DIRECTORY_SEPARATOR . 'site2' . DIRECTORY_SEPARATOR . 'foo', 0777, true);
+    file_put_contents($root . DIRECTORY_SEPARATOR . 'foo' . DIRECTORY_SEPARATOR . 'index.php', '<?php echo "native";');
+    $outside = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'dirbrowser-outside-' . bin2hex(random_bytes(4));
+    mkdir($outside);
+    symlink($outside, $root . DIRECTORY_SEPARATOR . 'foo' . DIRECTORY_SEPARATOR . 'escape');
+
+    $tests = [
+        'directory without index' => [resolveRequestedDirectory($root, '/foo/', $config['globalEndpoint']), $root . DIRECTORY_SEPARATOR . 'foo'],
+        'nested directory' => [resolveRequestedDirectory($root, '/foo/nested/', $config['globalEndpoint']), $root . DIRECTORY_SEPARATOR . 'foo' . DIRECTORY_SEPARATOR . 'nested'],
+        'multiple virtual hosts' => [resolveRequestedDirectory($root . DIRECTORY_SEPARATOR . 'site2', '/foo/', $config['globalEndpoint']), $root . DIRECTORY_SEPARATOR . 'site2' . DIRECTORY_SEPARATOR . 'foo'],
+        'traversal outside document root' => [resolveRequestedDirectory($root, '/../', $config['globalEndpoint']), null],
+        'encoded traversal attempt' => [resolveRequestedDirectory($root, '/foo/%252e%252e/', $config['globalEndpoint']), null],
+        'symlink escape' => [resolveRequestedDirectory($root, '/foo/escape/', $config['globalEndpoint']), null],
+        'direct endpoint is rejected' => [resolveRequestedDirectory($root, '/__dirbrowser__', $config['globalEndpoint']), null],
+    ];
+
+    foreach ($tests as $name => [$actual, $expected]) {
+        $expected = $expected === null ? null : realpath($expected);
+        if ($actual !== $expected) {
+            fwrite(STDERR, sprintf("FAIL: %s\nExpected: %s\nActual: %s\n", $name, var_export($expected, true), var_export($actual, true)));
+            exit(1);
+        }
+    }
+
+    echo "DirBrowser self-test passed. Apache DirectoryIndex still controls native index.php precedence.\n";
+    exit(0);
+}
+$directory = determineBrowseDirectory($_SERVER, $config['globalEndpoint']);
+if (!$directory) {
+    http_response_code(403);
+    exit('Unable to determine a safe directory to browse');
+}
 /*
 |--------------------------------------------------------------------------
 | Helpers
@@ -846,7 +966,7 @@ function markdown(string $text): string
         <?php endif; ?>
     </div>
     <footer>
-        DirBrowser v1.0.0
+        DirBrowser v1.1.0
         &nbsp;·&nbsp;
         Powered by PHP <?= PHP_VERSION ?>
         &nbsp;·&nbsp;

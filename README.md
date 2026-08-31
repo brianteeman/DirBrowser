@@ -6,7 +6,7 @@ DirBrowser provides a clean, GitHub-inspired file browser for folders that do no
 
 DirBrowser is a single PHP file with no installation process, no database, and no external dependencies.
 
-Simply place `index.php` in a folder and open it through your browser.
+You can either place `index.php` directly in a folder, or install one global copy for Laragon/Apache.
 
 > [!WARNING]
 > **DirBrowser is designed for local development environments only.**
@@ -14,6 +14,7 @@ Simply place `index.php` in a folder and open it through your browser.
 > This tool is intended for use on local development servers such as **Laragon**, where you need a convenient way to browse project folders during development.
 >
 > **Do not install DirBrowser on a live production server.**
+
 ---
 
 ## Features
@@ -51,16 +52,9 @@ Columns can be sorted by clicking the heading:
 - Size
 - Modified date
 
-The active sort column displays an arrow showing:
+The active sort column displays an arrow showing ascending or descending order.
 
-- ascending order
-- descending order
-
-When sorting by name:
-
-- folders remain grouped together
-- files remain grouped together
-- alphabetical sorting happens within each group
+When sorting by name, folders remain grouped together and alphabetical sorting happens within each group.
 
 ---
 
@@ -68,21 +62,7 @@ When sorting by name:
 
 Instant client-side searching.
 
-Press:
-
-```
-Ctrl + /
-```
-
-to focus the search box.
-
-Press:
-
-```
-Escape
-```
-
-to clear the search.
+Press `Ctrl + /` to focus the search box. Press `Escape` to clear the search.
 
 ---
 
@@ -96,47 +76,18 @@ The selected theme is remembered using browser local storage, so your preference
 
 ### README.md support
 
-If a folder contains:
-
-```
-README.md
-```
-
-DirBrowser automatically displays it underneath the directory listing.
-
-This is useful for:
-
-- project documentation
-- installation notes
-- development information
-- repository descriptions
-
----
-
-### File icons
-
-DirBrowser includes inline SVG icons for common file types:
-
-- PHP
-- HTML
-- CSS
-- JavaScript
-- JSON
-- XML
-- Markdown
-- Images
-- Archives
-- PDF files
+If a folder contains `README.md`, DirBrowser automatically displays it underneath the directory listing.
 
 ---
 
 ### Security features
 
-DirBrowser includes basic protections:
+DirBrowser includes protections for global mode:
 
-- prevents directory traversal
+- canonicalises requested filesystem paths with `realpath()`
+- rejects `..`, encoded traversal and direct endpoint requests
+- blocks symlink escapes outside the active virtual host `DOCUMENT_ROOT`
 - hides hidden files by default
-- blocks access outside the document root
 - escapes displayed filenames and paths
 
 ---
@@ -149,17 +100,13 @@ DirBrowser includes basic protections:
 
 ---
 
-# Installation with Laragon
+## Direct installation
 
----
+Place `index.php` in the folder you want to browse and open that folder through Apache/Laragon.
 
-# Testing
+Example:
 
-You can test DirBrowser without any Apache configuration.
-
-Create:
-
-```
+```text
 C:\laragon\www\test-folder\
 │
 ├── index.php
@@ -170,11 +117,152 @@ C:\laragon\www\test-folder\
 
 Open:
 
-```
+```text
 http://test-folder.test/
 ```
 
-The directory contents will be displayed.
+DirBrowser will browse the directory containing that `index.php` file.
+
+---
+
+## Global installation with Laragon
+
+Global mode lets you keep exactly one copy of DirBrowser at:
+
+```text
+C:\laragon\usr\dirbrowser\index.php
+```
+
+Apache/Laragon then uses that single file only when a requested directory does not contain a normal index file.
+
+### 1. Install the files
+
+Create the directory:
+
+```text
+C:\laragon\usr\dirbrowser\
+```
+
+Copy these repository files into it:
+
+```text
+C:\laragon\usr\dirbrowser\index.php
+C:\laragon\usr\dirbrowser\laragon-dirbrowser.conf
+```
+
+The Apache configuration is included in this repository at:
+
+```text
+apache/laragon-dirbrowser.conf
+```
+
+### 2. Include the Apache configuration
+
+Add this line to a user-maintained Apache configuration file that Laragon loads:
+
+```apache
+Include "C:/laragon/usr/dirbrowser/laragon-dirbrowser.conf"
+```
+
+One practical approach is to create a small file under Laragon's user area, for example:
+
+```text
+C:\laragon\usr\dirbrowser\include-dirbrowser.conf
+```
+
+and include that file from Apache's main configuration once. Avoid editing Laragon-generated virtual host files because Laragon may regenerate them.
+
+The provided configuration uses Apache's `DirectoryIndex` fallback:
+
+```apache
+DirectoryIndex index.php index.html index.htm /__dirbrowser__
+Alias /__dirbrowser__ "C:/laragon/usr/dirbrowser/index.php"
+```
+
+Because `index.php`, `index.html` and `index.htm` appear before `/__dirbrowser__`, normal project index files continue to take precedence. DirBrowser is only invoked as the final fallback.
+
+### 3. Restart Apache
+
+Restart Apache from Laragon:
+
+1. Open the Laragon window.
+2. Click **Menu**.
+3. Choose **Apache**.
+4. Click **Restart**.
+
+### 4. Test global mode
+
+Create two Laragon projects:
+
+```text
+C:\laragon\www\site1\foo\example.txt
+C:\laragon\www\site1\foo\nested\nested.txt
+C:\laragon\www\site2\foo\example.txt
+```
+
+Open these URLs:
+
+```text
+https://site1.test/foo/
+https://site1.test/foo/nested/
+https://site2.test/foo/
+```
+
+Expected results:
+
+- `https://site1.test/foo/` browses `C:\laragon\www\site1\foo\`.
+- `https://site1.test/foo/nested/` browses `C:\laragon\www\site1\foo\nested\`.
+- `https://site2.test/foo/` browses `C:\laragon\www\site2\foo\`.
+
+The same `/foo/` URL path resolves independently for each virtual host because DirBrowser resolves the original request relative to that virtual host's `DOCUMENT_ROOT`.
+
+### 5. Verify normal index files still win
+
+Create:
+
+```text
+C:\laragon\www\site1\has-index\index.php
+```
+
+Open:
+
+```text
+https://site1.test/has-index/
+```
+
+Apache should serve `has-index\index.php`, not DirBrowser.
+
+### 6. Disable global integration
+
+Remove or comment out the include line:
+
+```apache
+# Include "C:/laragon/usr/dirbrowser/laragon-dirbrowser.conf"
+```
+
+Then restart Apache from Laragon.
+
+---
+
+## Test/demo procedure
+
+A lightweight self-test is available for the path-resolution and security-sensitive parts of global mode:
+
+```bash
+php index.php --self-test
+```
+
+It verifies:
+
+- a directory without an index resolves to the browsed directory
+- nested directories resolve correctly
+- multiple virtual hosts use their own document roots
+- `..` traversal is rejected
+- URL-encoded traversal is rejected
+- symlink escapes outside the document root are rejected
+- direct access to `/__dirbrowser__` is rejected
+
+Apache itself verifies native index precedence through the `DirectoryIndex` order: `index.php index.html index.htm /__dirbrowser__`.
 
 ---
 
@@ -187,7 +275,8 @@ Example:
 ```php
 $config = [
     'showHiddenFiles' => false,
-    'showFileSizes'   => true,
+    'showReadme'      => true,
+    'globalEndpoint'  => '/__dirbrowser__',
 ];
 ```
 
@@ -196,7 +285,8 @@ Options:
 | Option | Description |
 |---|---|
 | `showHiddenFiles` | Display hidden files such as `.git` files |
-| `showFileSizes` | Display file sizes |
+| `showReadme` | Display README.md content below the directory listing |
+| `globalEndpoint` | Internal Apache endpoint used by the global DirectoryIndex fallback |
 
 ---
 
@@ -211,15 +301,7 @@ DirBrowser provides:
 - better visibility of development files
 - a modern interface for local development
 
-It is especially useful when working with:
-
-- Laravel projects
-- Joomla extensions
-- WordPress plugins
-- static websites
-- JavaScript projects
-- documentation folders
-- build output directories
+It is especially useful when working with Laravel projects, Joomla extensions, WordPress plugins, static websites, JavaScript projects, documentation folders and build output directories.
 
 ---
 
@@ -238,5 +320,3 @@ Built as a lightweight alternative for local development environments.
 # License
 
 MIT License
-
-Copyright © @brianteeman
