@@ -126,36 +126,6 @@ function determineBrowseDirectory(array $server, string $endpoint): ?string
 
     return resolveRequestedDirectory($documentRoot, $server['REQUEST_URI'] ?? '', $endpoint);
 }
-if (PHP_SAPI === 'cli' && ($argv[1] ?? '') === '--self-test') {
-    $root = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'dirbrowser-test-' . bin2hex(random_bytes(4));
-    mkdir($root . DIRECTORY_SEPARATOR . 'foo' . DIRECTORY_SEPARATOR . 'nested', 0777, true);
-    mkdir($root . DIRECTORY_SEPARATOR . 'site2' . DIRECTORY_SEPARATOR . 'foo', 0777, true);
-    file_put_contents($root . DIRECTORY_SEPARATOR . 'foo' . DIRECTORY_SEPARATOR . 'index.php', '<?php echo "native";');
-    $outside = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'dirbrowser-outside-' . bin2hex(random_bytes(4));
-    mkdir($outside);
-    symlink($outside, $root . DIRECTORY_SEPARATOR . 'foo' . DIRECTORY_SEPARATOR . 'escape');
-
-    $tests = [
-        'directory without index' => [resolveRequestedDirectory($root, '/foo/', $config['globalEndpoint']), $root . DIRECTORY_SEPARATOR . 'foo'],
-        'nested directory' => [resolveRequestedDirectory($root, '/foo/nested/', $config['globalEndpoint']), $root . DIRECTORY_SEPARATOR . 'foo' . DIRECTORY_SEPARATOR . 'nested'],
-        'multiple virtual hosts' => [resolveRequestedDirectory($root . DIRECTORY_SEPARATOR . 'site2', '/foo/', $config['globalEndpoint']), $root . DIRECTORY_SEPARATOR . 'site2' . DIRECTORY_SEPARATOR . 'foo'],
-        'traversal outside document root' => [resolveRequestedDirectory($root, '/../', $config['globalEndpoint']), null],
-        'encoded traversal attempt' => [resolveRequestedDirectory($root, '/foo/%252e%252e/', $config['globalEndpoint']), null],
-        'symlink escape' => [resolveRequestedDirectory($root, '/foo/escape/', $config['globalEndpoint']), null],
-        'direct endpoint is rejected' => [resolveRequestedDirectory($root, '/__dirbrowser__', $config['globalEndpoint']), null],
-    ];
-
-    foreach ($tests as $name => [$actual, $expected]) {
-        $expected = $expected === null ? null : realpath($expected);
-        if ($actual !== $expected) {
-            fwrite(STDERR, sprintf("FAIL: %s\nExpected: %s\nActual: %s\n", $name, var_export($expected, true), var_export($actual, true)));
-            exit(1);
-        }
-    }
-
-    echo "DirBrowser self-test passed. Apache DirectoryIndex still controls native index.php precedence.\n";
-    exit(0);
-}
 $directory = determineBrowseDirectory($_SERVER, $config['globalEndpoint']);
 if (!$directory) {
     http_response_code(403);
