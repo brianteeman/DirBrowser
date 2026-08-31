@@ -293,6 +293,14 @@ usort(
     }
 );
 $title = basename($directory) ?: 'Home';
+$parentDirectory = dirname($directory);
+$documentRoot = realpath($_SERVER['DOCUMENT_ROOT'] ?? '');
+$showParentLink = $parentDirectory !== $directory
+    && (
+        !isGlobalDirBrowserRequest($_SERVER, $config['globalEndpoint'])
+        || !$documentRoot
+        || $directory !== $documentRoot
+    );
 /*
 |--------------------------------------------------------------------------
 | README detection
@@ -640,6 +648,7 @@ function markdown(string $text): string
         outline: 2px solid var(--accent);
         outline-offset: -1px;
     }
+    .parent-link,
     button {
         border: 1px solid var(--border);
         background: var(--bg);
@@ -648,6 +657,13 @@ function markdown(string $text): string
         border-radius: 6px;
         cursor: pointer;
     }
+    .parent-link {
+        display: inline-flex;
+        align-items: center;
+        gap: .35rem;
+        white-space: nowrap;
+    }
+    .parent-link:hover,
     button:hover {
         background: var(--hover);
     }
@@ -875,6 +891,11 @@ function markdown(string $text): string
             <?= formatBytes($totalSize) ?>
         </div>
         <div class="toolbar">
+            <?php if ($showParentLink): ?>
+                <a class="parent-link" href="../" aria-label="Go to parent directory">
+                    ↑ Parent
+                </a>
+            <?php endif; ?>
             <input id="search" type="search" placeholder="Ctrl + / Search files...">
             <button id="darkToggle">
                 ☾ Dark
