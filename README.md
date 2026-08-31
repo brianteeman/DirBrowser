@@ -1,6 +1,6 @@
 # DirBrowser
 
-A modern, lightweight replacement for Apache directory listings.
+DirBrowser 2.0 is a modern, lightweight replacement for Apache directory listings with one-click file running and previews.
 
 DirBrowser provides a clean, GitHub-inspired file browser for folders that do not contain an `index.*` file. It is designed primarily for local development environments such as **Laragon**, where browsing project folders is often more useful than seeing Apache's default directory listing.
 
@@ -21,6 +21,10 @@ Simply place `index.php` in a folder and open it through your browser.
 ### Modern directory browsing
 
 - Clean, responsive interface
+- Click files to run or preview them
+- Image files open in a lightbox/modal
+- Text, Markdown, JavaScript, CSS, JSON, XML, and log files open in a lightbox/modal
+- PHP files open directly so your PHP server executes them normally
 - Folder and file listing
 - Folders displayed before files
 - File metadata:
@@ -40,6 +44,21 @@ The interface is inspired by modern code hosting platforms:
 - familiar folder and file presentation
 - readable paths
 - responsive layout
+
+---
+
+
+### Run and preview files
+
+DirBrowser 2.0 turns each file name into an action:
+
+- PHP files open in the browser as normal links, allowing Apache/PHP to execute them just like any regular PHP page.
+- Images open in a built-in lightbox/modal instead of navigating away from the directory listing.
+- Text-oriented files, including JavaScript, Markdown, CSS, JSON, XML, logs, CSV, YAML, INI, ENV, and SQL files, open in a readable modal preview.
+- HTML files open in the browser as normal links so the browser renders them instead of showing their source in a modal.
+- Other file types remain normal links so the browser can download or open them according to its default behavior.
+
+Press `Escape`, click the backdrop, or use the close button to dismiss a preview.
 
 ---
 

@@ -1,6 +1,6 @@
 <?php
 /**
- * DirBrowser v1.1
+ * DirBrowser v2.0
  *
  * A modern replacement for Apache directory listings.
  *
@@ -219,6 +219,23 @@ function icon(string $type): string
     ];
     return $icons[$type] ?? $icons['file'];
 }
+
+function fileAction(string $name, bool $directory): string
+{
+    if ($directory) {
+        return 'browse';
+    }
+
+    $extension = strtolower(pathinfo($name, PATHINFO_EXTENSION));
+
+    return match ($extension) {
+        'jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp', 'avif' => 'image',
+        'txt', 'text', 'log', 'md', 'markdown', 'js', 'mjs', 'cjs', 'css', 'json', 'xml', 'csv', 'yml', 'yaml', 'ini', 'env', 'sql' => 'text',
+        'php', 'php3', 'php4', 'php5', 'phtml', 'html', 'htm' => 'run',
+        default => 'download',
+    };
+}
+
 function fileIcon(string $name, bool $directory): string
 {
     if ($directory) {
@@ -272,6 +289,7 @@ foreach (scandir($directory) as $item) {
         'directory' => $isDirectory,
         'size'      => $isDirectory ? 0 : filesize($path),
         'modified'  => filemtime($path),
+        'action'    => fileAction($item, $isDirectory),
     ];
 }
 /*
@@ -574,6 +592,7 @@ function markdown(string $text): string
         --hover: #f6f8fa;
         --accent: #0969da;
         --code-bg: #f6f8fa;
+        --modal-backdrop: rgba(31, 35, 40, .72);
     }
     :root.dark {
         --bg: #0d1117;
@@ -583,6 +602,7 @@ function markdown(string $text): string
         --hover: #161b22;
         --accent: #58a6ff;
         --code-bg: #161b22;
+        --modal-backdrop: rgba(1, 4, 9, .82);
     }
     * {
         box-sizing: border-box;
@@ -836,6 +856,79 @@ function markdown(string $text): string
     .readme h3 {
         font-size: 1.25rem;
     }
+
+    /*
+    |--------------------------------------------------------------------------
+    | File preview modal
+    |--------------------------------------------------------------------------
+    */
+    .modal {
+        align-items: center;
+        background: var(--modal-backdrop);
+        display: none;
+        inset: 0;
+        justify-content: center;
+        padding: 2rem;
+        position: fixed;
+        z-index: 1000;
+    }
+    .modal.is-open {
+        display: flex;
+    }
+    .modal-dialog {
+        background: var(--bg);
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        box-shadow: 0 24px 80px rgba(0, 0, 0, .35);
+        display: flex;
+        flex-direction: column;
+        max-height: 90vh;
+        max-width: 1000px;
+        overflow: hidden;
+        width: min(100%, 1000px);
+    }
+    .modal-header {
+        align-items: center;
+        border-bottom: 1px solid var(--border);
+        display: flex;
+        gap: 1rem;
+        justify-content: space-between;
+        padding: .8rem 1rem;
+    }
+    .modal-title {
+        font-weight: 600;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+    .modal-close {
+        flex-shrink: 0;
+    }
+    .modal-body {
+        min-height: 240px;
+        overflow: auto;
+        padding: 1rem;
+    }
+    .modal-body img {
+        display: block;
+        height: auto;
+        margin: 0 auto;
+        max-height: 75vh;
+        max-width: 100%;
+    }
+    .modal-body pre {
+        background: var(--code-bg);
+        border-radius: 6px;
+        margin: 0;
+        overflow: auto;
+        padding: 1rem;
+        white-space: pre-wrap;
+        word-break: break-word;
+    }
+    .modal-loading,
+    .modal-error {
+        color: var(--muted);
+    }
     /*
     |--------------------------------------------------------------------------
     | Footer
@@ -930,9 +1023,11 @@ function markdown(string $text): string
                                         <?= htmlspecialchars($item['name']) ?>
                                     </a>
                                 <?php else: ?>
-                                    <span>
+                                    <a href="<?= htmlspecialchars(rawurlencode($item['name'])) ?>"
+                                        data-action="<?= htmlspecialchars($item['action']) ?>"
+                                        data-filename="<?= htmlspecialchars($item['name']) ?>">
                                         <?= htmlspecialchars($item['name']) ?>
-                                    </span>
+                                    </a>
                                 <?php endif; ?>
                             </div>
                         </td>
@@ -956,8 +1051,18 @@ function markdown(string $text): string
             </section>
         <?php endif; ?>
     </div>
+
+    <div class="modal" id="previewModal" role="dialog" aria-modal="true" aria-labelledby="modalTitle" hidden>
+        <div class="modal-dialog">
+            <div class="modal-header">
+                <div class="modal-title" id="modalTitle">Preview</div>
+                <button class="modal-close" id="modalClose" type="button" aria-label="Close preview">× Close</button>
+            </div>
+            <div class="modal-body" id="modalBody"></div>
+        </div>
+    </div>
     <footer>
-        DirBrowser v1.1.0
+        DirBrowser v2.0.0
         &nbsp;·&nbsp;
         Powered by PHP <?= PHP_VERSION ?>
         &nbsp;·&nbsp;
@@ -1016,6 +1121,7 @@ function markdown(string $text): string
                 search.dispatchEvent(
                     new Event('input')
                 );
+                closeModal();
             }
         }
     );
@@ -1124,6 +1230,85 @@ function markdown(string $text): string
         }
     );
     updateSortIndicator();
+
+    /*
+    |--------------------------------------------------------------------------
+    | File previews and runners
+    |--------------------------------------------------------------------------
+    */
+    const previewModal =
+        document.getElementById('previewModal');
+    const modalTitle =
+        document.getElementById('modalTitle');
+    const modalBody =
+        document.getElementById('modalBody');
+    const modalClose =
+        document.getElementById('modalClose');
+    function openModal(title) {
+        modalTitle.textContent = title;
+        previewModal.hidden = false;
+        previewModal.classList.add('is-open');
+        modalClose.focus();
+    }
+    function closeModal() {
+        previewModal.classList.remove('is-open');
+        previewModal.hidden = true;
+        modalBody.replaceChildren();
+    }
+    function previewImage(link) {
+        openModal(link.dataset.filename);
+        const image = document.createElement('img');
+        image.src = link.href;
+        image.alt = link.dataset.filename;
+        modalBody.replaceChildren(image);
+    }
+    async function previewText(link) {
+        openModal(link.dataset.filename);
+        modalBody.innerHTML = '<div class="modal-loading">Loading file…</div>';
+        try {
+            const response = await fetch(link.href);
+            if (!response.ok) {
+                throw new Error('Unable to load this file.');
+            }
+            const text = await response.text();
+            const pre = document.createElement('pre');
+            const code = document.createElement('code');
+            code.textContent = text;
+            pre.appendChild(code);
+            modalBody.replaceChildren(pre);
+        } catch (error) {
+            const message = document.createElement('div');
+            message.className = 'modal-error';
+            message.textContent = error.message;
+            modalBody.replaceChildren(message);
+        }
+    }
+    tbody.addEventListener(
+        'click',
+        function(event) {
+            const link = event.target.closest('a[data-action]');
+            if (!link) {
+                return;
+            }
+            if (link.dataset.action === 'image') {
+                event.preventDefault();
+                previewImage(link);
+            }
+            if (link.dataset.action === 'text') {
+                event.preventDefault();
+                previewText(link);
+            }
+        }
+    );
+    modalClose.addEventListener('click', closeModal);
+    previewModal.addEventListener(
+        'click',
+        function(event) {
+            if (event.target === previewModal) {
+                closeModal();
+            }
+        }
+    );
     /*
     |--------------------------------------------------------------------------
     | Dark mode
