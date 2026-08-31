@@ -151,6 +151,96 @@ DirBrowser includes basic protections:
 
 # Installation with Laragon
 
+## Global installation
+
+DirBrowser can be installed once and used by Apache/Laragon as a global directory-index fallback. In this mode you keep one copy at:
+
+```text
+C:\laragon\usr\dirbrowser\index.php
+```
+
+and Apache uses it whenever a requested directory does not contain a normal index file.
+
+Copy these repository files to the same folder:
+
+```text
+C:\laragon\usr\dirbrowser\index.php
+C:\laragon\usr\dirbrowser\laragon-dirbrowser.conf
+```
+
+The Apache configuration file is included in this repository as `laragon-dirbrowser.conf`.
+
+Open Laragon's Apache `httpd.conf`. You can reach it from Laragon with **Menu** → **Apache** → **httpd.conf**.
+
+Find the existing commented Fancy directory listings block:
+
+```apache
+# Fancy directory listings
+#Include conf/extra/httpd-autoindex.conf
+```
+
+Leave `httpd-autoindex.conf` commented unless you specifically want Apache's built-in fancy indexes. Add the DirBrowser include below that block:
+
+```apache
+# Fancy directory listings
+#Include conf/extra/httpd-autoindex.conf
+Include "C:/laragon/usr/dirbrowser/laragon-dirbrowser.conf"
+```
+
+This changes the main Apache configuration once and avoids editing Laragon-generated virtual-host files, which may be regenerated.
+
+The provided configuration uses Apache's `DirectoryIndex` mechanism:
+
+```apache
+DirectoryIndex index.php index.html index.htm /__dirbrowser__
+Alias /__dirbrowser__ "C:/laragon/usr/dirbrowser/index.php"
+```
+
+Because `index.php`, `index.html` and `index.htm` come before `/__dirbrowser__`, normal index files continue to take precedence. DirBrowser is only used when those files are absent.
+
+Restart Apache from Laragon after adding or removing the include:
+
+1. Open Laragon.
+2. Choose **Menu** → **Apache** → **Restart**.
+
+To test global mode, create directories without index files in more than one virtual host, for example:
+
+```text
+C:\laragon\www\site1\foo\example.txt
+C:\laragon\www\site1\foo\nested\nested.txt
+C:\laragon\www\site2\foo\example.txt
+```
+
+Then open:
+
+```text
+https://site1.test/foo/
+https://site1.test/foo/nested/
+https://site2.test/foo/
+```
+
+Each URL should browse the matching directory under that host's own `DOCUMENT_ROOT`.
+
+To confirm normal index-file precedence, create:
+
+```text
+C:\laragon\www\site1\has-index\index.php
+```
+
+and open:
+
+```text
+https://site1.test/has-index/
+```
+
+Apache should serve that local `index.php`, not DirBrowser.
+
+To disable global integration, comment or remove the include line and restart Apache:
+
+```apache
+# Include "C:/laragon/usr/dirbrowser/laragon-dirbrowser.conf"
+```
+
 ---
 
 # Testing
