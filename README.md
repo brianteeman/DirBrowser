@@ -170,13 +170,24 @@ C:\laragon\usr\dirbrowser\laragon-dirbrowser.conf
 
 The Apache configuration file is included in this repository as `laragon-dirbrowser.conf`.
 
-Add this include to a user-maintained Apache configuration file that Laragon loads:
+Open Laragon's Apache `httpd.conf`. You can reach it from Laragon with **Menu** → **Apache** → **httpd.conf**.
+
+Find the existing commented Fancy directory listings block:
 
 ```apache
+# Fancy directory listings
+#Include conf/extra/httpd-autoindex.conf
+```
+
+Leave `httpd-autoindex.conf` commented unless you specifically want Apache's built-in fancy indexes. Add the DirBrowser include below that block:
+
+```apache
+# Fancy directory listings
+#Include conf/extra/httpd-autoindex.conf
 Include "C:/laragon/usr/dirbrowser/laragon-dirbrowser.conf"
 ```
 
-Avoid editing Laragon-generated virtual-host files as they may be regenerated.
+This changes the main Apache configuration once and avoids editing Laragon-generated virtual-host files, which may be regenerated.
 
 The provided configuration uses Apache's `DirectoryIndex` mechanism:
 
